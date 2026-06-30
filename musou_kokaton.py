@@ -241,12 +241,31 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Life:
+    """
+    残機数を表示, 初期残機数：3, 残機数が0になるまで死なないクラス
+    """
+
+    def __init__(self, num: int):
+        self.num = num
+        self.image = pg.Surface((40, 40))
+        self.image.set_colorkey((0, 0, 0))
+        points = [(16*math.sin(t/100)**3 +20,
+                -(13*math.cos(t/100)-5*math.cos(2*t/100)-2*math.cos(3*t/100)-math.cos(4*t/100)) +20
+                ) for t in range(0, 628) ]
+        pg.draw.polygon(self.image, (255, 0, 0), points)
+    def update(self, screen: pg.Surface):
+        for i in range(self.num):
+            x = (WIDTH - 50 -20) - (i * 50)
+            y = HEIGHT - 50 -20
+            screen.blit(self.image, (x, y))
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
+    life = Life(3)
 
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
@@ -282,12 +301,15 @@ def main():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+        # こうかとんと衝突した爆弾リスト
+        if len(pg.sprite.spritecollide(bird, bombs, True)) > 0:
+            life.num -= 1  # ライフ（残機数）を1減らす
+            if life.num < 0:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -299,6 +321,7 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        life.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
