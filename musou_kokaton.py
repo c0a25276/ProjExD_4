@@ -222,6 +222,29 @@ class Enemy(pg.sprite.Sprite):
             self.state = "stop"
         self.rect.move_ip(self.vx, self.vy)
 
+class Gravity(pg.sprite.Sprite):
+    """
+    画面全体を覆う重力場に関するクラス
+    """
+    def __init__(self, life: int):
+        """
+        重力場のSurfaceと対応するRectを生成する
+        引数 life：発動時間（フレーム数）
+        """
+        super().__init__()
+        self.image = pg.Surface((WIDTH, HEIGHT))
+        self.image.set_alpha(128)  # 透明度のある黒（0〜255、128で半透明）
+        self.image.fill((0, 0, 0))
+        self.rect = self.image.get_rect()
+        self.life = life
+
+    def update(self):
+        """
+        発動時間を1減算し、0未満になったら消滅する
+        """
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
 
 class Score:
     """
@@ -272,7 +295,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
-
+    gravity = pg.sprite.Group()  # 重力場グループを追加
     tmr = 0
     clock = pg.time.Clock()
     while True:
@@ -280,8 +303,13 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
-            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_SPACE:
+                    beams.add(Beam(bird))
+            # エンターキー押下かつスコアが200より大きい場合、重力場を発動
+                if event.key == pg.K_LSHIFT and score.value > 200:
+                    score.value -= 200
+                    gravity.add(Gravity(400))
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -310,6 +338,18 @@ def main():
                 pg.display.update()
                 time.sleep(2)
                 return
+        # 重力場と衝突した敵機の処理（爆発エフェクトと削除）
+        for emy in pg.sprite.groupcollide(emys, gravity, True, False).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 10  # 敵機撃破スコア（必要に応じて調整可）
+            bird.change_img(6, screen)
+
+        # 重力場と衝突した爆弾の処理（爆発エフェクトと削除）
+        for bomb in pg.sprite.groupcollide(bombs, gravity, True, False).keys():
+            exps.add(Explosion(bomb, 50))
+            score.value += 1   # 爆弾撃破スコア（必要に応じて調整可）
+
+        
 
         bird.update(key_lst, screen)
         beams.update()
@@ -318,6 +358,8 @@ def main():
         emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
+        gravity.update()      # 重力場の更新
+        gravity.draw(screen)  # 重力場の描画
         exps.update()
         exps.draw(screen)
         score.update(screen)
